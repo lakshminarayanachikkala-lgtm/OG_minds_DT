@@ -376,6 +376,8 @@ function applyDyeingEffect(
   }
 }
 
+
+
 function PreviewCanvas({
   img,
   tech,
@@ -393,37 +395,56 @@ function PreviewCanvas({
   softness: number;
   seed: number;
 }) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
+    const wrap = wrapRef.current;
+    const canvas = canvasRef.current;
+    if (!wrap || !canvas) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
-    const cssW = 360;
-    const cssH = 220;
-    canvas.style.width = `${cssW}px`;
-    canvas.style.height = `${cssH}px`;
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const ro = new ResizeObserver(() => {
+      const rect = wrap.getBoundingClientRect();
+      const cssW = Math.max(1, Math.round(rect.width));
+      const cssH = Math.max(1, Math.round(rect.height));
 
-    applyDyeingEffect(ctx, img, {
-      tech,
-      w: cssW,
-      h: cssH,
-      dyeHex,
-      intensity,
-      scale,
-      softness,
-      seed: (seed + tech.length * 991) >>> 0
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+
+      // draw in CSS pixels
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      applyDyeingEffect(ctx, img, {
+        tech,
+        w: cssW,
+        h: cssH,
+        dyeHex,
+        intensity,
+        scale,
+        softness,
+        seed: (seed + tech.length * 991) >>> 0
+      });
     });
+
+    ro.observe(wrap);
+    return () => ro.disconnect();
   }, [img, tech, dyeHex, intensity, scale, softness, seed]);
 
-  return <canvas ref={ref} className="rounded-xl block border bg-white shadow-sm" />;
+  return (
+    <div
+      ref={wrapRef}
+      className="w-full aspect-[16/10] rounded-xl border bg-white shadow-sm overflow-hidden"
+    >
+      <canvas ref={canvasRef} className="w-full h-full block" />
+    </div>
+  );
 }
+
+ 
 
 export default function Page() {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
